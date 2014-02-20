@@ -81,9 +81,9 @@ The following query invokes all unit tests that have been created under the sche
 	$$
 	LANGUAGE plpgsql;
 
-	BEGIN TRANSACTION;
+	--BEGIN TRANSACTION;
 	SELECT * FROM unit_tests.begin();
-	ROLLBACK TRANSACTION;
+	--ROLLBACK TRANSACTION;
 
 **Will Result In**
 
@@ -99,6 +99,8 @@ The following query invokes all unit tests that have been created under the sche
 	unit_tests.example1() --> This failed intentionally.
 
 ## Example #2
+
+	DROP FUNCTION IF EXISTS unit_tests.example2()
 
 	CREATE FUNCTION unit_tests.example2()
 	RETURNS test_result
@@ -126,9 +128,9 @@ The following query invokes all unit tests that have been created under the sche
 	$$
 	LANGUAGE plpgsql;
 
-	BEGIN TRANSACTION;
+	--BEGIN TRANSACTION;
 	SELECT * FROM unit_tests.begin();
-	ROLLBACK TRANSACTION;
+	--ROLLBACK TRANSACTION;
 
 **Will Result In**
 
@@ -177,9 +179,9 @@ The following query invokes all unit tests that have been created under the sche
 	$$
 	LANGUAGE plpgsql;
 
-	BEGIN TRANSACTION;
+	--BEGIN TRANSACTION;
 	SELECT * FROM unit_tests.begin();
-	ROLLBACK TRANSACTION;
+	--ROLLBACK TRANSACTION;
 
 **Will Result In**
 
