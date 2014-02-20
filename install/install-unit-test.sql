@@ -16,11 +16,11 @@ CREATE DOMAIN test_result AS text;
 
 CREATE TABLE unit_tests.tests
 (
-	test_id				SERIAL NOT NULL PRIMARY KEY,
-	started_on			TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
-	completed_on		TIMESTAMP WITHOUT TIME ZONE NULL,
-	total_tests			integer NULL DEFAULT(0),
-	failed_tests		integer NULL DEFAULT(0)
+	test_id					SERIAL NOT NULL PRIMARY KEY,
+	started_on				TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+	completed_on				TIMESTAMP WITHOUT TIME ZONE NULL,
+	total_tests				integer NULL DEFAULT(0),
+	failed_tests				integer NULL DEFAULT(0)
 );
 
 CREATE INDEX unit_tests_tests_started_on_inx
@@ -35,11 +35,11 @@ ON unit_tests.tests(failed_tests);
 CREATE TABLE unit_tests.test_details
 (
 	id					BIGSERIAL NOT NULL PRIMARY KEY,
-	test_id				integer NOT NULL REFERENCES unit_tests.tests(test_id),
-	function_name		text NOT NULL,
-	message				text NOT NULL,
+	test_id					integer NOT NULL REFERENCES unit_tests.tests(test_id),
+	function_name				text NOT NULL,
+	message					text NOT NULL,
 	ts					TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
-	status				boolean NOT NULL
+	status					boolean NOT NULL
 );
 
 CREATE INDEX unit_tests_test_details_test_id_inx
@@ -96,6 +96,17 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+
+CREATE FUNCTION assert.are_equal(IN have anyelement, IN want anyelement, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	PERFORM assert.is_equal($1, $2, $3, $4);
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
 CREATE FUNCTION assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -115,6 +126,143 @@ END
 $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
+
+CREATE FUNCTION assert.are_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	PERFORM assert.is_not_equal($1, $2, $3, $4);
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
+
+CREATE FUNCTION assert.is_null(IN anyelement, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	IF($1 == NULL) THEN
+		message := 'Assert is NULL.';
+		PERFORM assert.ok(message);
+		result := true;
+		RETURN;
+	END IF;
+	
+	message := E'ASSERT IS_NULL FAILED. NULL value was expected.\n\n\n'; 	
+	PERFORM assert.fail(message);
+	result := false;
+	RETURN;
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
+
+CREATE FUNCTION assert.is_not_null(IN anyelement, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	IF($1 != NULL) THEN
+		message := 'Assert is not NULL.';
+		PERFORM assert.ok(message);
+		result := true;
+		RETURN;
+	END IF;
+	
+	message := E'ASSERT IS_NOT_NULL FAILED. The value is NULL.\n\n\n'; 	
+	PERFORM assert.fail(message);
+	result := false;
+	RETURN;
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
+
+CREATE FUNCTION assert.is_true(IN boolean, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	IF($1 == true) THEN
+		message := 'Assert is true.';
+		PERFORM assert.ok(message);
+		result := true;
+		RETURN;
+	END IF;
+	
+	message := E'ASSERT IS_TRUE FAILED. A true condition was expected.\n\n\n'; 	
+	PERFORM assert.fail(message);
+	result := false;
+	RETURN;
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
+
+CREATE FUNCTION assert.is_false(IN boolean, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	IF($1 == true) THEN
+		message := 'Assert is false.';
+		PERFORM assert.ok(message);
+		result := true;
+		RETURN;
+	END IF;
+	
+	message := E'ASSERT IS_FALSE FAILED. A false condition was expected.\n\n\n'; 	
+	PERFORM assert.fail(message);
+	result := false;
+	RETURN;
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
+
+CREATE FUNCTION assert.is_greater_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	IF($1 > $2) THEN
+		message := 'Assert greater than condition is satisfied.';
+		PERFORM assert.ok(message);
+		result := true;
+		RETURN;
+	END IF;
+	
+	message := E'ASSERT IS_GREATER_THAN FAILED.\n\n X : -> ' || $1::text || E'\n is not greater than Y:   -> ' || $2::text || E'\n'; 	
+	PERFORM assert.fail(message);
+	result := false;
+	RETURN;
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
+
+CREATE FUNCTION assert.is_less_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
+AS
+$$
+BEGIN
+	IF($1 < $2) THEN
+		message := 'Assert less than condition is satisfied.';
+		PERFORM assert.ok(message);
+		result := true;
+		RETURN;
+	END IF;
+	
+	message := E'ASSERT IS_LESS_THAN FAILED.\n\n X : -> ' || $1::text || E'\n is not  than Y:   -> ' || $2::text || E'\n'; 	
+	PERFORM assert.fail(message);
+	result := false;
+	RETURN;
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
 
 CREATE FUNCTION assert.function_exists(function_name text, OUT message text, OUT result boolean)
 AS
@@ -142,6 +290,8 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql;
+
+
 
 CREATE FUNCTION unit_tests.begin()
 RETURNS TABLE(message text, result character(1))
