@@ -64,6 +64,18 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+CREATE FUNCTION assert.pass(message text)
+RETURNS text
+AS
+$$
+BEGIN
+	RAISE NOTICE 'ASSERT PASSED : %', message;
+	RETURN '';
+END
+$$
+LANGUAGE plpgsql
+IMMUTABLE STRICT;
+
 CREATE FUNCTION assert.ok(message text)
 RETURNS text
 AS
@@ -97,11 +109,26 @@ LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
 
-CREATE FUNCTION assert.are_equal(IN have anyelement, IN want anyelement, OUT message text, OUT result boolean)
+CREATE FUNCTION assert.are_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
 AS
 $$
+	DECLARE count integer=0;
 BEGIN
-	PERFORM assert.is_equal($1, $2, $3, $4);
+	SELECT COUNT(DISTINCT $1[s.i]) INTO count
+	FROM generate_series(array_lower($1,1), array_upper($1,1)) AS s(i)
+	ORDER BY 1;
+
+	IF count <> 1 THEN
+		MESSAGE := E'ASSERT ARE_EQUAL FAILED.'; 	
+		PERFORM assert.fail(MESSAGE);
+		RESULT := FALSE;
+		RETURN;
+	END IF;
+
+	message := 'Asserts are equal.';
+	PERFORM assert.ok(message);
+	result := true;
+	RETURN;
 END
 $$
 LANGUAGE plpgsql
@@ -127,11 +154,26 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-CREATE FUNCTION assert.are_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
+CREATE FUNCTION assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
 AS
 $$
+	DECLARE count integer=0;
 BEGIN
-	PERFORM assert.is_not_equal($1, $2, $3, $4);
+	SELECT COUNT(DISTINCT $1[s.i]) INTO count
+	FROM generate_series(array_lower($1,1), array_upper($1,1)) AS s(i)
+	ORDER BY 1;
+
+	IF count <> array_upper($1,1) THEN
+		MESSAGE := E'ASSERT ARE_NOT_EQUAL FAILED.'; 	
+		PERFORM assert.fail(MESSAGE);
+		RESULT := FALSE;
+		RETURN;
+	END IF;
+
+	message := 'Asserts are not equal.';
+	PERFORM assert.ok(message);
+	result := true;
+	RETURN;
 END
 $$
 LANGUAGE plpgsql

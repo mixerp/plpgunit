@@ -1,6 +1,6 @@
 #PostgreSQL Unit Testing Framework (plpgunit)
 
-Plpgunit started out of curiosity on why a unit testing framework cannot be simple and easy to use?
+Plpgunit started out of curiosity on why a unit testing framework cannot be simple and easy to use? Plpgunit does not require any additional dependencies and is ready to be used on your PostgreSQL Server instance.
 
 # Documentation
 
@@ -15,14 +15,6 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
   </tr>
   <tr>
     <td>
-      assert.fail(text)
-    </td>
-    <td>
-      Fails a test.
-    </td>
-  </tr>
-  <tr>
-    <td>
       assert.ok(text)
     </td>
     <td>
@@ -31,18 +23,106 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
   </tr>
   <tr>
     <td>
+      assert.fail(text)
+    </td>
+    <td>
+      Fails the test.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      assert.pass(text)
+    </td>
+    <td>
+	Passes the test.
+    </td>
+  </tr>
+  <tr>
+    <td>
       assert.is_equal(IN have anyelement, IN want anyelement, OUT message text, OUT result boolean)
     </td>
     <td>
-      Fails the test if the first two arguments do not match.
+      Fails the test if the first argugment is not equal to the second.
     </td>
+  </tr>
+  <tr>
+ 	 <td>
+		assert.are_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
+  	</td>
+  	<td>
+  		Fails the test if any item of the supplied arguments is not equal to others. Remember, you can pass any number of arguments here.
+  	</td>
   </tr>
   <tr>
     <td>
       assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
     </td>
     <td>
-      Fails the test if the first two argument match.
+      Fails the test if the first argugment is equal to the second arguement.
+    </td>	
+  </tr>
+  <tr>
+ 	 <td>
+		assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
+  	</td>
+  	<td>
+  		Fails the test if any item of the supplied arguments is euqal to another. Remember, you can pass any number of arguments here.
+  	</td>
+  </tr>
+  <tr>
+    <td>
+		assert.is_null(IN anyelement, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the first argument is NOT NULL.
+    </td>
+  </tr>
+  <tr>
+    <td>
+    		assert.is_not_null(IN anyelement, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the first argument is NULL.
+    </td>
+  </tr>
+  <tr>
+    <td>
+    		assert.is_true(IN boolean, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the first argument is FALSE.
+    </td>
+  </tr>
+  <tr>
+    <td>
+    		assert.is_false(IN boolean, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the first argument is TRUE.
+    </td>
+  </tr>
+  <tr>
+    <td>
+    		assert.is_greater_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the first argument is not greater than the second argument.
+    </td>
+  </tr>
+  <tr>
+    <td>
+    		assert.is_less_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the first argument is not less than the second argument.
+    </td>
+  </tr>
+  <tr>
+    <td>
+    		assert.function_exists(function_name text, OUT message text, OUT result boolean)
+    </td>
+    <td>
+		Fails the test if the function does not exists in the current database. Make sure that the passed function name is a fully qualified relation name, and contains argument types.
     </td>
   </tr>
 </table>
@@ -199,6 +279,12 @@ The following query invokes all unit tests that have been created under the sche
 
 	Have -> 99
 	Want -> 100
+
+
+## Need contributors for writing examples.
+We need contributors. If you are interested to contribute, let's talk:
+
+<a href="http://facebook.com/pesbinod/">http://facebook.com/pesbinod/</a>
 
 
 Happy testing!
