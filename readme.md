@@ -1,6 +1,6 @@
 #PostgreSQL Unit Testing Framework (plpgunit)
 
-Plpgunit started out of curiosity on why a unit testing framework cannot be simple and easy to use? Plpgunit does not require any additional dependencies and is ready to be used on your PostgreSQL Server instance.
+Plpgunit started out of curiosity on why a unit testing framework cannot be simple and easy to use. Plpgunit does not require any additional dependencies and is ready to be used on your PostgreSQL Server database.
 
 #Documentation
 Please visit the <a href="wiki" title= "Plpgsql documentation">wiki page</a>.
@@ -13,11 +13,14 @@ A unit test is a function which :
 * should not have any arguments.
 * should always return "test_result" data type.
 
-The following query invokes all unit tests that have been created under the schema "unit_tests":
+#First Thing First
+However you could do that,  but there is no need to call each test function manually. The following query automatically invokes all unit tests that have been already created:
 
 	BEGIN TRANSACTION;
 	SELECT * FROM unit_tests.begin();
 	ROLLBACK TRANSACTION;
+
+Remember, if your test(s) does not contain DML statements, there is no need to BEGIN and ROLLBACK transaction.
 
 #Examples
 View documentation for more examples.
