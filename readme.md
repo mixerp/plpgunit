@@ -3,7 +3,6 @@
 Plpgunit started out of curiosity on why a unit testing framework cannot be simple and easy to use? Plpgunit does not require any additional dependencies and is ready to be used on your PostgreSQL Server instance.
 
 # Documentation
-
 <table>
   <tr>
     <th>
@@ -42,7 +41,7 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
       assert.is_equal(IN have anyelement, IN want anyelement, OUT message text, OUT result boolean)
     </td>
     <td>
-      Fails the test if the first argugment is not equal to the second.
+      Fails the test if the first argument is not equal to the second.
     </td>
   </tr>
   <tr>
@@ -58,7 +57,7 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
       assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
     </td>
     <td>
-      Fails the test if the first argugment is equal to the second arguement.
+      Fails the test if the first argument is equal to the second argument.
     </td>	
   </tr>
   <tr>
@@ -66,7 +65,7 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
 		assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
   	</td>
   	<td>
-  		Fails the test if any item of the supplied arguments is euqal to another. Remember, you can pass any number of arguments here.
+  		Fails the test if any item of the supplied arguments is equal to another. Remember, you can pass any number of arguments here.
   	</td>
   </tr>
   <tr>
@@ -122,7 +121,7 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
     		assert.function_exists(function_name text, OUT message text, OUT result boolean)
     </td>
     <td>
-		Fails the test if the function does not exists in the current database. Make sure that the passed function name is a fully qualified relation name, and contains argument types.
+		Fails the test if the function does not exist in the current database. Make sure that the passed function name is a fully qualified relation name, and contains argument types.
     </td>
   </tr>
 </table>
@@ -130,6 +129,7 @@ Plpgunit started out of curiosity on why a unit testing framework cannot be simp
 # Creating a Plpgunit Unit Test 
 
 A unit test is a function which : 
+
 * must be created under the schema "unit_tests".
 * should not have any arguments.
 * should always return "test_result" data type.
@@ -165,7 +165,7 @@ The following query invokes all unit tests that have been created under the sche
 	SELECT * FROM unit_tests.begin();
 	--ROLLBACK TRANSACTION;
 
-**Will Result In**
+**Will Result in**
 
 	Test completed on : 2013-10-18 19:30:01.543 UTC. 
 	Total test runtime: 19 ms.
@@ -212,7 +212,7 @@ The following query invokes all unit tests that have been created under the sche
 	SELECT * FROM unit_tests.begin();
 	--ROLLBACK TRANSACTION;
 
-**Will Result In**
+**Will Result in**
 
 	Test completed on : 2013-10-18 19:47:11.886 UTC. 
 	Total test runtime: 21 ms.
@@ -263,7 +263,7 @@ The following query invokes all unit tests that have been created under the sche
 	SELECT * FROM unit_tests.begin();
 	--ROLLBACK TRANSACTION;
 
-**Will Result In**
+**Will Result in**
 
 	Test completed on : 2013-10-18 19:48:30.578 UTC. 
 	Total test runtime: 11 ms.
@@ -281,7 +281,7 @@ The following query invokes all unit tests that have been created under the sche
 	Want -> 100
 
 
-## Need contributors for writing examples.
+## Need Contributors for Writing Examples
 We need contributors. If you are interested to contribute, let's talk:
 
 <a href="http://facebook.com/pesbinod/">http://facebook.com/pesbinod/</a>
