@@ -3,7 +3,7 @@
 Plpgunit started out of curiosity on why a unit testing framework cannot be simple and easy to use. Plpgunit does not require any additional dependencies and is ready to be used on your PostgreSQL Server database.
 
 #Documentation
-Please visit the <a href="wiki" title= "Plpgsql documentation">wiki page</a>.
+Please visit the <a href="https://github.com/mixerp/plpgunit/wiki" title= "Plpgsql documentation">wiki page</a>.
 
 # Creating a Plpgunit Unit Test 
 
