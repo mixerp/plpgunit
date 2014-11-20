@@ -349,7 +349,181 @@ LANGUAGE plpgsql;
 
 
 
-CREATE FUNCTION unit_tests.begin()
+DROP FUNCTION IF EXISTS assert.if_functions_compile
+(
+    VARIADIC _schema_name text[],
+    OUT message text, 
+    OUT result boolean    
+);
+
+CREATE OR REPLACE FUNCTION assert.if_functions_compile
+(
+    VARIADIC _schema_name text[],
+    OUT message text, 
+    OUT result boolean
+)
+AS
+$$
+    DECLARE all_parameters              text;
+    DECLARE current_function            RECORD;
+    DECLARE current_function_name       text;
+    DECLARE current_type                text;
+    DECLARE current_type_schema         text;
+    DECLARE current_parameter           text;
+    DECLARE functions_count             smallint := 0;
+    DECLARE current_parameters_count    int;
+    DECLARE i                           int;
+    DECLARE command_text                text;
+    DECLARE failed_functions            text;
+BEGIN
+    FOR current_function IN 
+        SELECT proname, proargtypes, nspname 
+        FROM pg_proc 
+        INNER JOIN pg_namespace 
+        ON pg_proc.pronamespace = pg_namespace.oid 
+        WHERE pronamespace IN 
+        (
+            SELECT oid FROM pg_namespace 
+            WHERE nspname = ANY($1) 
+            AND nspname NOT IN
+            (
+                'assert', 'unit_tests', 'information_schema'
+            ) 
+            AND proname NOT IN('if_functions_compile')
+        ) 
+    LOOP
+        current_parameters_count := array_upper(current_function.proargtypes, 1) + 1;
+
+        i := 0;
+        all_parameters := '';
+
+        LOOP
+        IF i < current_parameters_count THEN
+            IF i > 0 THEN
+                all_parameters := all_parameters || ', ';
+            END IF;
+
+            SELECT 
+                nspname, typname 
+            INTO 
+                current_type_schema, current_type 
+            FROM pg_type 
+            INNER JOIN pg_namespace 
+            ON pg_type.typnamespace = pg_namespace.oid
+            WHERE pg_type.oid = current_function.proargtypes[i];
+
+            IF(current_type IN('int4', 'int8', 'numeric', 'integer_strict', 'money_strict','decimal_strict', 'integer_strict2', 'money_strict2','decimal_strict2', 'money','decimal', 'numeric', 'bigint')) THEN
+                current_parameter := '1::' || current_type_schema || '.' || current_type;
+            ELSIF(substring(current_type, 1, 1) = '_') THEN
+                current_parameter := 'NULL::' || current_type_schema || '.' || substring(current_type, 2, length(current_type)) || '[]';
+            ELSIF(current_type in ('date')) THEN            
+                current_parameter := '''1-1-2000''::' || current_type;
+            ELSIF(current_type = 'bool') THEN
+                current_parameter := 'false';            
+            ELSE
+                current_parameter := '''''::' || quote_ident(current_type_schema) || '.' || quote_ident(current_type);
+            END IF;
+            
+            all_parameters = all_parameters || current_parameter;
+
+            i := i + 1;
+        ELSE
+            EXIT;
+        END IF;
+    END LOOP;
+
+    BEGIN
+        current_function_name := quote_ident(current_function.nspname)  || '.' || quote_ident(current_function.proname);
+        command_text := 'SELECT * FROM ' || current_function_name || '(' || all_parameters || ');';
+
+        EXECUTE command_text;
+        functions_count := functions_count + 1;
+
+        EXCEPTION WHEN OTHERS THEN
+            IF(failed_functions IS NULL) THEN 
+                failed_functions := '';
+            END IF;
+
+            IF(SQLSTATE IN('42702', '42704')) THEN
+                failed_functions := failed_functions || E'\n' || command_text || E'\n' || SQLERRM || E'\n';                
+            END IF;
+    END;
+
+
+    END LOOP;
+
+    IF(failed_functions != '') THEN
+        message := E'The test if_functions_compile failed. The following functions failed to compile : \n\n' || failed_functions;
+        result := false;
+        PERFORM assert.fail(message);
+        RETURN;
+    END IF;
+END;
+$$
+LANGUAGE plpgsql 
+VOLATILE;
+
+DROP FUNCTION IF EXISTS assert.if_views_compile
+(
+    VARIADIC _schema_name text[],
+    OUT message text, 
+    OUT result boolean    
+);
+
+CREATE FUNCTION assert.if_views_compile
+(
+    VARIADIC _schema_name text[],
+    OUT message text, 
+    OUT result boolean    
+)
+AS
+$$
+
+    DECLARE message                     test_result;
+    DECLARE current_view                RECORD;
+    DECLARE current_view_name           text;
+    DECLARE command_text                text;
+    DECLARE failed_views                text;
+BEGIN
+    FOR current_view IN 
+        SELECT table_name, table_schema 
+        FROM information_schema.views
+        WHERE table_schema = ANY($1) 
+    LOOP
+
+    BEGIN
+        current_view_name := quote_ident(current_view.table_schema)  || '.' || quote_ident(current_view.table_name);
+        command_text := 'SELECT * FROM ' || current_view_name || ' LIMIT 1;';
+
+        RAISE NOTICE '%', command_text;
+        
+        EXECUTE command_text;
+
+        EXCEPTION WHEN OTHERS THEN
+            IF(failed_views IS NULL) THEN 
+                failed_views := '';
+            END IF;
+
+            failed_views := failed_views || E'\n' || command_text || E'\n' || SQLERRM || E'\n';                
+    END;
+
+
+    END LOOP;
+
+    IF(failed_views != '') THEN
+        message := E'The test if_views_compile failed. The following views failed to compile : \n\n' || failed_views;
+        result := false;
+        PERFORM assert.fail(message);
+        RETURN;
+    END IF;
+
+    RETURN;
+END;
+$$
+LANGUAGE plpgsql 
+VOLATILE;
+
+CREATE FUNCTION unit_tests.begin(v int DEFAULT 9)
 RETURNS TABLE(message text, result character(1))
 AS
 $$
@@ -367,8 +541,20 @@ $$
     DECLARE _completed_on TIMESTAMP WITHOUT TIME ZONE;
     DECLARE _delta integer;
     DECLARE _ret_val text = '';
+    DECLARE _verbosity text[] = ARRAY['debug5', 'debug4', 'debug3', 'debug2', 'debug1', 'log', 'notice', 'warning', 'error', 'fatal', 'panic'];
 BEGIN
     _started_from := clock_timestamp() AT TIME ZONE 'UTC';
+
+    RAISE INFO 'Test started from : %', _started_from; 
+
+    IF(v > 10) THEN
+        v := 9;
+    END IF;
+    
+    EXECUTE 'SET CLIENT_MIN_MESSAGES TO ' || _verbosity[v];
+
+    RAISE WARNING 'CLIENT_MIN_MESSAGES set to : %' , _verbosity[v];
+    
 
     SELECT nextval('unit_tests.tests_test_id_seq') INTO _test_id;
 
@@ -383,31 +569,42 @@ BEGIN
         WHERE   nspname = 'unit_tests'
         AND prorettype='test_result'::regtype::oid
     LOOP
-        _status := false;
-        _total_tests := _total_tests + 1;
-        
-        _function_name = 'unit_tests.' || this.function_name || '()';
-        _sql := 'SELECT ' || _function_name || ';';
-        
-        RAISE NOTICE 'RUNNING TEST : %.', _function_name;
+        BEGIN
+            _status := false;
+            _total_tests := _total_tests + 1;
+            
+            _function_name = 'unit_tests.' || this.function_name || '()';
+            _sql := 'SELECT ' || _function_name || ';';
+            
+            RAISE NOTICE 'RUNNING TEST : %.', _function_name;
 
-        EXECUTE _sql INTO _message;
+            EXECUTE _sql INTO _message;
 
-        IF _message = '' THEN
-            _status := true;
-        END IF;
+            IF _message = '' THEN
+                _status := true;
+            END IF;
 
-        
-        INSERT INTO unit_tests.test_details(test_id, function_name, message, status)
-        SELECT _test_id, _function_name, _message, _status;
+            
+            INSERT INTO unit_tests.test_details(test_id, function_name, message, status)
+            SELECT _test_id, _function_name, _message, _status;
 
-        IF NOT _status THEN
+            IF NOT _status THEN
+                _failed_tests := _failed_tests + 1;         
+                RAISE WARNING 'TEST % FAILED.', _function_name;
+                RAISE WARNING 'REASON: %', _message;
+            ELSE
+                RAISE NOTICE 'TEST % COMPLETED WITHOUT ERRORS.', _function_name;
+            END IF;
+
+        EXCEPTION WHEN OTHERS THEN
+            _message := 'ERR' || SQLSTATE || ': ' || SQLERRM;
+            INSERT INTO unit_tests.test_details(test_id, function_name, message, status)
+            SELECT _test_id, _function_name, _message, false;
+
             _failed_tests := _failed_tests + 1;         
             RAISE WARNING 'TEST % FAILED.', _function_name;
             RAISE WARNING 'REASON: %', _message;
-        ELSE
-            RAISE NOTICE 'TEST % COMPLETED WITHOUT ERRORS.', _function_name;
-        END IF;
+        END;
     END LOOP;
 
     _completed_on := clock_timestamp() AT TIME ZONE 'UTC';
@@ -417,26 +614,38 @@ BEGIN
     SET total_tests = _total_tests, failed_tests = _failed_tests, completed_on = _completed_on
     WHERE test_id = _test_id;
 
-    SELECT array_to_string(array_agg(unit_tests.test_details.function_name || ' --> ' || unit_tests.test_details.message), E'\n') INTO _list_of_failed_tests 
-    FROM unit_tests.test_details 
-    WHERE test_id = _test_id
-    AND status= false;
+    
+    WITH failed_tests AS
+    (
+        SELECT row_number() over (order by id) AS id, 
+        unit_tests.test_details.function_name,
+        unit_tests.test_details.message
+        FROM unit_tests.test_details 
+        WHERE test_id = _test_id
+        AND status= false
+    )
+
+    SELECT array_to_string(array_agg(f.id::text || '. ' || f.function_name || ' --> ' || f.message), E'\n') INTO _list_of_failed_tests 
+    FROM failed_tests f;
 
     _ret_val := _ret_val ||  'Test completed on : ' || _completed_on::text || E' UTC. \nTotal test runtime: ' || _delta::text || E' ms.\n';
     _ret_val := _ret_val || E'\nTotal tests run : ' || COALESCE(_total_tests, '0')::text;
     _ret_val := _ret_val || E'.\nPassed tests    : ' || (COALESCE(_total_tests, '0') - COALESCE(_failed_tests, '0'))::text;
     _ret_val := _ret_val || E'.\nFailed tests    : ' || COALESCE(_failed_tests, '0')::text;
-    _ret_val := _ret_val || E'.\n\nList of failed tests:\n' || '-----------------------------';
+    _ret_val := _ret_val || E'.\n\nList of failed tests:\n' || '----------------------';
     _ret_val := _ret_val || E'\n' || COALESCE(_list_of_failed_tests, '<NULL>')::text;
-    _ret_val := _ret_val || E'\n\n';
+    _ret_val := _ret_val || E'\n' || E'End of plpgunit test.\n\n';
+
 
     IF _failed_tests > 0 THEN
         _result := 'N';
-        RAISE WARNING '%', _ret_val;
+        RAISE INFO '%', _ret_val;
     ELSE
         _result := 'Y';
-        RAISE NOTICE '%', _ret_val;
+        RAISE INFO '%', _ret_val;
     END IF;
+
+    SET CLIENT_MIN_MESSAGES TO notice;
 
     RETURN QUERY SELECT _ret_val, _result;
 END
