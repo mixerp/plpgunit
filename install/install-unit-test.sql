@@ -1,4 +1,5 @@
-﻿/********************************************************************************
+
+/********************************************************************************
 The PostgreSQL License
 
 Copyright (c) 2014, Binod Nepal, Mix Open Foundation (http://mixof.org).
@@ -523,7 +524,7 @@ $$
 LANGUAGE plpgsql 
 VOLATILE;
 
-CREATE FUNCTION unit_tests.begin(v int DEFAULT 9)
+CREATE FUNCTION unit_tests.begin(v int DEFAULT 9, format text DEFAULT '')
 RETURNS TABLE(message text, result character(1))
 AS
 $$
@@ -585,8 +586,8 @@ BEGIN
             END IF;
 
             
-            INSERT INTO unit_tests.test_details(test_id, function_name, message, status)
-            SELECT _test_id, _function_name, _message, _status;
+            INSERT INTO unit_tests.test_details(test_id, function_name, message, status, ts)
+            SELECT _test_id, _function_name, _message, _status, clock_timestamp();
 
             IF NOT _status THEN
                 _failed_tests := _failed_tests + 1;         
@@ -614,27 +615,44 @@ BEGIN
     SET total_tests = _total_tests, failed_tests = _failed_tests, completed_on = _completed_on
     WHERE test_id = _test_id;
 
-    
-    WITH failed_tests AS
-    (
-        SELECT row_number() over (order by id) AS id, 
-        unit_tests.test_details.function_name,
-        unit_tests.test_details.message
-        FROM unit_tests.test_details 
-        WHERE test_id = _test_id
-        AND status= false
-    )
+    IF format='junit' THEN
+        SELECT 
+            '<?xml version="1.0" encoding="UTF-8"?>'||
+            xmlelement(name testsuites,
+                xmlelement(name testsuite,
+                        xmlattributes('pgplsqlunit' as name, t.total_tests as tests, t.failed_tests as failures, 0 as errors, EXTRACT(EPOCH FROM t.completed_on - t.started_on) as time),
+                        xmlagg(xmlelement(name testcase, 
+                                xmlattributes(td.function_name as name, EXTRACT(EPOCH FROM td.ts - t.started_on) as time),
+                                case when td.status=false then xmlelement(name failure, td.message) end
+                        ))
+                )
+            ) INTO _ret_val
+        FROM unit_tests.test_details td, unit_tests.tests t
+        WHERE
+            t.test_id=_test_id
+            AND td.test_id=t.test_id
+        GROUP BY t.test_id;
+    ELSE
+        WITH failed_tests AS
+        (
+            SELECT row_number() over (order by id) AS id, 
+                unit_tests.test_details.function_name,
+                unit_tests.test_details.message
+            FROM unit_tests.test_details 
+            WHERE test_id = _test_id
+                AND status= false
+        )
+        SELECT array_to_string(array_agg(f.id::text || '. ' || f.function_name || ' --> ' || f.message), E'\n') INTO _list_of_failed_tests 
+        FROM failed_tests f;
 
-    SELECT array_to_string(array_agg(f.id::text || '. ' || f.function_name || ' --> ' || f.message), E'\n') INTO _list_of_failed_tests 
-    FROM failed_tests f;
-
-    _ret_val := _ret_val ||  'Test completed on : ' || _completed_on::text || E' UTC. \nTotal test runtime: ' || _delta::text || E' ms.\n';
-    _ret_val := _ret_val || E'\nTotal tests run : ' || COALESCE(_total_tests, '0')::text;
-    _ret_val := _ret_val || E'.\nPassed tests    : ' || (COALESCE(_total_tests, '0') - COALESCE(_failed_tests, '0'))::text;
-    _ret_val := _ret_val || E'.\nFailed tests    : ' || COALESCE(_failed_tests, '0')::text;
-    _ret_val := _ret_val || E'.\n\nList of failed tests:\n' || '----------------------';
-    _ret_val := _ret_val || E'\n' || COALESCE(_list_of_failed_tests, '<NULL>')::text;
-    _ret_val := _ret_val || E'\n' || E'End of plpgunit test.\n\n';
+        _ret_val := _ret_val ||  'Test completed on : ' || _completed_on::text || E' UTC. \nTotal test runtime: ' || _delta::text || E' ms.\n';
+        _ret_val := _ret_val || E'\nTotal tests run : ' || COALESCE(_total_tests, '0')::text;
+        _ret_val := _ret_val || E'.\nPassed tests    : ' || (COALESCE(_total_tests, '0') - COALESCE(_failed_tests, '0'))::text;
+        _ret_val := _ret_val || E'.\nFailed tests    : ' || COALESCE(_failed_tests, '0')::text;
+        _ret_val := _ret_val || E'.\n\nList of failed tests:\n' || '----------------------';
+        _ret_val := _ret_val || E'\n' || COALESCE(_list_of_failed_tests, '<NULL>')::text;
+        _ret_val := _ret_val || E'\n' || E'End of plpgunit test.\n\n';
+    END IF;
 
 
     IF _failed_tests > 0 THEN
