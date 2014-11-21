@@ -24,8 +24,8 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 DROP SCHEMA IF EXISTS assert CASCADE;
 DROP SCHEMA IF EXISTS unit_tests CASCADE;
 
-CREATE SCHEMA assert AUTHORIZATION postgres;
-CREATE SCHEMA unit_tests AUTHORIZATION postgres;
+CREATE SCHEMA assert;
+CREATE SCHEMA unit_tests;
 --only create test_result if does not exist
 DO $$BEGIN
         IF NOT EXISTS (
