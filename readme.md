@@ -9,7 +9,7 @@ Please visit the <a href="https://github.com/mixerp/plpgunit/wiki" title= "Plpgs
 
 A unit test is a function which : 
 
-* must be created under the schema "unit_tests".
+* is created under any schema.
 * should not have any arguments.
 * should always return "test_result" data type.
 
