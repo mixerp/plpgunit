@@ -23,11 +23,21 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 DROP SCHEMA IF EXISTS assert CASCADE;
 DROP SCHEMA IF EXISTS unit_tests CASCADE;
-DROP DOMAIN IF EXISTS public.test_result CASCADE;
 
 CREATE SCHEMA assert AUTHORIZATION postgres;
 CREATE SCHEMA unit_tests AUTHORIZATION postgres;
+--only create test_result if does not exist
+DO $$BEGIN
+        IF NOT EXISTS (
+            SELECT * FROM pg_type
+            WHERE 
+                typname ='test_result'
+                AND typnamespace = (SELECT oid FROM pg_namespace WHERE nspname ='public')) 
+        THEN
 CREATE DOMAIN public.test_result AS text;
+        END IF;
+    END
+$$;
 
 CREATE TABLE unit_tests.tests
 (
@@ -563,18 +573,20 @@ BEGIN
     SELECT _test_id;
 
     FOR this IN
-        SELECT proname as function_name
+        SELECT 
+            nspname as ns_name,
+            proname as function_name
         FROM    pg_catalog.pg_namespace n
         JOIN    pg_catalog.pg_proc p
         ON      pronamespace = n.oid
-        WHERE   nspname = 'unit_tests'
-        AND prorettype='test_result'::regtype::oid
+        WHERE
+            prorettype='test_result'::regtype::oid
     LOOP
         BEGIN
             _status := false;
             _total_tests := _total_tests + 1;
             
-            _function_name = 'unit_tests.' || this.function_name || '()';
+            _function_name = this.ns_name|| '.' || this.function_name || '()';
             _sql := 'SELECT ' || _function_name || ';';
             
             RAISE NOTICE 'RUNNING TEST : %.', _function_name;
