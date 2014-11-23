@@ -1,4 +1,3 @@
-
 /********************************************************************************
 The PostgreSQL License
 
@@ -21,24 +20,33 @@ AND MIX OPEN FOUNDATION HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT,
 UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 ***********************************************************************************/
 
-DROP SCHEMA IF EXISTS assert CASCADE;
-DROP SCHEMA IF EXISTS unit_tests CASCADE;
+CREATE SCHEMA IF NOT EXISTS assert;
+CREATE SCHEMA IF NOT EXISTS unit_tests;
 
-CREATE SCHEMA assert;
-CREATE SCHEMA unit_tests;
---only create test_result if does not exist
-DO $$BEGIN
-        IF NOT EXISTS (
-            SELECT * FROM pg_type
-            WHERE 
-                typname ='test_result'
-                AND typnamespace = (SELECT oid FROM pg_namespace WHERE nspname ='public')) 
-        THEN
-CREATE DOMAIN public.test_result AS text;
-        END IF;
-    END
-$$;
+DO 
+$$
+BEGIN
+    IF NOT EXISTS 
+    (
+        SELECT * FROM pg_type
+        WHERE 
+            typname ='test_result'
+        AND 
+            typnamespace = 
+            (
+                SELECT oid FROM pg_namespace 
+                WHERE nspname ='public'
+            )
+    ) THEN
+        CREATE DOMAIN public.test_result AS text;
+    END IF;
+END
+$$
+LANGUAGE plpgsql;
 
+
+DROP TABLE IF EXISTS unit_tests.test_details CASCADE;
+DROP TABLE IF EXISTS unit_tests.tests CASCADE;
 CREATE TABLE unit_tests.tests
 (
     test_id                                 SERIAL NOT NULL PRIMARY KEY,
@@ -73,6 +81,8 @@ ON unit_tests.test_details(test_id);
 CREATE INDEX unit_tests_test_details_status_inx
 ON unit_tests.test_details(status);
 
+
+DROP FUNCTION IF EXISTS assert.fail(message text);
 CREATE FUNCTION assert.fail(message text)
 RETURNS text
 AS
@@ -89,6 +99,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+DROP FUNCTION IF EXISTS assert.pass(message text);
 CREATE FUNCTION assert.pass(message text)
 RETURNS text
 AS
@@ -101,6 +112,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+DROP FUNCTION IF EXISTS assert.ok(message text);
 CREATE FUNCTION assert.ok(message text)
 RETURNS text
 AS
@@ -113,6 +125,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+DROP FUNCTION IF EXISTS assert.is_equal(IN have anyelement, IN want anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_equal(IN have anyelement, IN want anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -134,6 +147,7 @@ LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
 
+DROP FUNCTION IF EXISTS assert.are_equal(VARIADIC anyarray, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.are_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
 AS
 $$
@@ -159,6 +173,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+DROP FUNCTION IF EXISTS assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -179,6 +194,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
+DROP FUNCTION IF EXISTS assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
 AS
 $$
@@ -204,7 +220,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.is_null(IN anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_null(IN anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -225,7 +241,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.is_not_null(IN anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_not_null(IN anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -246,7 +262,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.is_true(IN boolean, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_true(IN boolean, OUT message text, OUT result boolean)
 AS
 $$
@@ -267,7 +283,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.is_false(IN boolean, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_false(IN boolean, OUT message text, OUT result boolean)
 AS
 $$
@@ -288,7 +304,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.is_greater_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_greater_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -309,7 +325,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.is_less_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_less_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
 AS
 $$
@@ -330,7 +346,7 @@ $$
 LANGUAGE plpgsql
 IMMUTABLE STRICT;
 
-
+DROP FUNCTION IF EXISTS assert.function_exists(function_name text, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.function_exists(function_name text, OUT message text, OUT result boolean)
 AS
 $$
@@ -358,15 +374,7 @@ END
 $$
 LANGUAGE plpgsql;
 
-
-
-DROP FUNCTION IF EXISTS assert.if_functions_compile
-(
-    VARIADIC _schema_name text[],
-    OUT message text, 
-    OUT result boolean    
-);
-
+DROP FUNCTION IF EXISTS assert.if_functions_compile(VARIADIC _schema_name text[], OUT message text, OUT result boolean);
 CREATE OR REPLACE FUNCTION assert.if_functions_compile
 (
     VARIADIC _schema_name text[],
@@ -454,7 +462,7 @@ BEGIN
             IF(failed_functions IS NULL) THEN 
                 failed_functions := '';
             END IF;
-
+            
             IF(SQLSTATE IN('42702', '42704')) THEN
                 failed_functions := failed_functions || E'\n' || command_text || E'\n' || SQLERRM || E'\n';                
             END IF;
@@ -474,13 +482,7 @@ $$
 LANGUAGE plpgsql 
 VOLATILE;
 
-DROP FUNCTION IF EXISTS assert.if_views_compile
-(
-    VARIADIC _schema_name text[],
-    OUT message text, 
-    OUT result boolean    
-);
-
+DROP FUNCTION IF EXISTS assert.if_views_compile(VARIADIC _schema_name text[], OUT message text, OUT result boolean);
 CREATE FUNCTION assert.if_views_compile
 (
     VARIADIC _schema_name text[],
@@ -534,39 +536,39 @@ $$
 LANGUAGE plpgsql 
 VOLATILE;
 
-CREATE FUNCTION unit_tests.begin(v int DEFAULT 9, format text DEFAULT '')
+DROP FUNCTION IF EXISTS unit_tests.begin(verbosity integer, format text);
+CREATE FUNCTION unit_tests.begin(verbosity integer DEFAULT 9, format text DEFAULT '')
 RETURNS TABLE(message text, result character(1))
 AS
 $$
-    DECLARE this record;
-    DECLARE _function_name text;
-    DECLARE _sql text;
-    DECLARE _message text;
-    DECLARE _result character(1);
-    DECLARE _test_id integer;
-    DECLARE _status boolean;
-    DECLARE _total_tests integer = 0;
-    DECLARE _failed_tests integer = 0;
-    DECLARE _list_of_failed_tests text;
-    DECLARE _started_from TIMESTAMP WITHOUT TIME ZONE;
-    DECLARE _completed_on TIMESTAMP WITHOUT TIME ZONE;
-    DECLARE _delta integer;
-    DECLARE _ret_val text = '';
-    DECLARE _verbosity text[] = ARRAY['debug5', 'debug4', 'debug3', 'debug2', 'debug1', 'log', 'notice', 'warning', 'error', 'fatal', 'panic'];
+    DECLARE this                    record;
+    DECLARE _function_name          text;
+    DECLARE _sql                    text;
+    DECLARE _message                text;
+    DECLARE _result                 character(1);
+    DECLARE _test_id                integer;
+    DECLARE _status                 boolean;
+    DECLARE _total_tests            integer                         = 0;
+    DECLARE _failed_tests           integer                         = 0;
+    DECLARE _list_of_failed_tests   text;
+    DECLARE _started_from           TIMESTAMP WITHOUT TIME ZONE;
+    DECLARE _completed_on           TIMESTAMP WITHOUT TIME ZONE;
+    DECLARE _delta                  integer;
+    DECLARE _ret_val                text                            = '';
+    DECLARE _verbosity              text[]                          = 
+                                    ARRAY['debug5', 'debug4', 'debug3', 'debug2', 'debug1', 'log', 'notice', 'warning', 'error', 'fatal', 'panic'];
 BEGIN
     _started_from := clock_timestamp() AT TIME ZONE 'UTC';
 
     RAISE INFO 'Test started from : %', _started_from; 
 
-    IF(v > 10) THEN
-        v := 9;
+    IF($1 > 11) THEN
+        $1 := 9;
     END IF;
     
-    EXECUTE 'SET CLIENT_MIN_MESSAGES TO ' || _verbosity[v];
-
-    RAISE WARNING 'CLIENT_MIN_MESSAGES set to : %' , _verbosity[v];
+    EXECUTE 'SET CLIENT_MIN_MESSAGES TO ' || _verbosity[$1];
+    RAISE WARNING 'CLIENT_MIN_MESSAGES set to : %' , _verbosity[$1];
     
-
     SELECT nextval('unit_tests.tests_test_id_seq') INTO _test_id;
 
     INSERT INTO unit_tests.tests(test_id)
@@ -574,8 +576,8 @@ BEGIN
 
     FOR this IN
         SELECT 
-            nspname as ns_name,
-            proname as function_name
+            nspname AS ns_name,
+            proname AS function_name
         FROM    pg_catalog.pg_namespace n
         JOIN    pg_catalog.pg_proc p
         ON      pronamespace = n.oid
@@ -630,29 +632,65 @@ BEGIN
     IF format='junit' THEN
         SELECT 
             '<?xml version="1.0" encoding="UTF-8"?>'||
-            xmlelement(name testsuites,
-                xmlelement(name testsuite,
-                        xmlattributes('pgplsqlunit' as name, t.total_tests as tests, t.failed_tests as failures, 0 as errors, EXTRACT(EPOCH FROM t.completed_on - t.started_on) as time),
-                        xmlagg(xmlelement(name testcase, 
-                                xmlattributes(td.function_name as name, EXTRACT(EPOCH FROM td.ts - t.started_on) as time),
-                                case when td.status=false then xmlelement(name failure, td.message) end
-                        ))
+            xmlelement
+            (
+                name testsuites,
+                xmlelement
+                (
+                    name                    testsuite,
+                    xmlattributes
+                    (
+                        'plpgunit'          AS name, 
+                        t.total_tests       AS tests, 
+                        t.failed_tests      AS failures, 
+                        0                   AS errors, 
+                        EXTRACT
+                        (
+                            EPOCH FROM t.completed_on - t.started_on
+                        )                   AS time
+                    ),
+                    xmlagg
+                    (
+                        xmlelement
+                        (
+                            name testcase, 
+                            xmlattributes
+                            (
+                                td.function_name
+                                            AS name, 
+                                EXTRACT
+                                (
+                                    EPOCH FROM td.ts - t.started_on
+                                )           AS time
+                            ),
+                            CASE 
+                                WHEN td.status=false 
+                                THEN 
+                                    xmlelement
+                                    (
+                                        name failure, 
+                                        td.message
+                                    ) 
+                                END
+                        )
+                    )
                 )
             ) INTO _ret_val
         FROM unit_tests.test_details td, unit_tests.tests t
         WHERE
             t.test_id=_test_id
-            AND td.test_id=t.test_id
+        AND 
+            td.test_id=t.test_id
         GROUP BY t.test_id;
     ELSE
         WITH failed_tests AS
         (
-            SELECT row_number() over (order by id) AS id, 
+            SELECT row_number() OVER (ORDER BY id) AS id, 
                 unit_tests.test_details.function_name,
                 unit_tests.test_details.message
             FROM unit_tests.test_details 
             WHERE test_id = _test_id
-                AND status= false
+            AND status= false
         )
         SELECT array_to_string(array_agg(f.id::text || '. ' || f.function_name || ' --> ' || f.message), E'\n') INTO _list_of_failed_tests 
         FROM failed_tests f;
@@ -665,8 +703,7 @@ BEGIN
         _ret_val := _ret_val || E'\n' || COALESCE(_list_of_failed_tests, '<NULL>')::text;
         _ret_val := _ret_val || E'\n' || E'End of plpgunit test.\n\n';
     END IF;
-
-
+    
     IF _failed_tests > 0 THEN
         _result := 'N';
         RAISE INFO '%', _ret_val;
@@ -676,8 +713,20 @@ BEGIN
     END IF;
 
     SET CLIENT_MIN_MESSAGES TO notice;
-
+    
     RETURN QUERY SELECT _ret_val, _result;
+END
+$$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS unit_tests.begin_junit(verbosity integer);
+CREATE FUNCTION unit_tests.begin_junit(verbosity integer DEFAULT 9)
+RETURNS TABLE(message text, result character(1))
+AS
+$$
+BEGIN
+    RETURN QUERY 
+    SELECT * FROM unit_tests.begin($1, 'junit');
 END
 $$
 LANGUAGE plpgsql;
