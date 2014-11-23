@@ -7,11 +7,10 @@ Please visit the <a href="https://github.com/mixerp/plpgunit/wiki" title= "Plpgs
 
 # Creating a Plpgunit Unit Test 
 
-A unit test is a function which : 
+A unit test is a plain old function which must: 
 
-* is created under any schema.
-* should not have any arguments.
-* should always return "test_result" data type.
+* not have any arguments.
+* always return "test_result" data type.
 
 #First Thing First
 However you could do that,  but there is no need to call each test function manually. The following query automatically invokes all unit tests that have been already created:
