@@ -267,7 +267,7 @@ CREATE FUNCTION assert.is_true(IN boolean, OUT message text, OUT result boolean)
 AS
 $$
 BEGIN
-    IF($1 == true) THEN
+    IF($1 = true) THEN
         message := 'Assert is true.';
         PERFORM assert.ok(message);
         result := true;
@@ -288,7 +288,7 @@ CREATE FUNCTION assert.is_false(IN boolean, OUT message text, OUT result boolean
 AS
 $$
 BEGIN
-    IF($1 == true) THEN
+    IF($1 = false) THEN
         message := 'Assert is false.';
         PERFORM assert.ok(message);
         result := true;
