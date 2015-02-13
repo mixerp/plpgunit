@@ -583,6 +583,7 @@ BEGIN
         ON      pronamespace = n.oid
         WHERE
             prorettype='test_result'::regtype::oid
+        ORDER BY p.oid ASC
     LOOP
         BEGIN
             _status := false;
