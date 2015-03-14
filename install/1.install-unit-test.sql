@@ -359,14 +359,14 @@ BEGIN
         ON      pronamespace = n.oid
         WHERE replace(nspname || '.' || proname || '(' || oidvectortypes(proargtypes) || ')', ' ' , '')::text=$1
     ) THEN
-        message := 'The function % does not exist.', $1;
+        message := format('The function %s does not exist.', $1);
         PERFORM assert.fail(message);
 
         result := false;
         RETURN;
     END IF;
 
-    message := 'OK. The function ' || $1 || ' exists.';
+    message := format('Ok. The function %s exists.', $1);
     PERFORM assert.ok(message);
     result := true;
     RETURN;
@@ -536,6 +536,7 @@ $$
 LANGUAGE plpgsql 
 VOLATILE;
 
+
 DROP FUNCTION IF EXISTS unit_tests.begin(verbosity integer, format text);
 CREATE FUNCTION unit_tests.begin(verbosity integer DEFAULT 9, format text DEFAULT '')
 RETURNS TABLE(message text, result character(1))
@@ -560,8 +561,12 @@ $$
 BEGIN
     _started_from := clock_timestamp() AT TIME ZONE 'UTC';
 
-    RAISE INFO 'Test started from : %', _started_from; 
-
+    IF(format='teamcity') THEN
+        RAISE INFO '##teamcity[testSuiteStarted name=''Plpgunit'' message=''Test started from : %'']', _started_from; 
+    ELSE
+        RAISE INFO 'Test started from : %', _started_from; 
+    END IF;
+    
     IF($1 > 11) THEN
         $1 := 9;
     END IF;
@@ -594,12 +599,30 @@ BEGIN
             
             RAISE NOTICE 'RUNNING TEST : %.', _function_name;
 
+            IF(format='teamcity') THEN
+                RAISE INFO '##teamcity[testStarted name=''%'' message=''%'']', _function_name, _started_from; 
+            ELSE
+                RAISE INFO 'Running test % : %', _function_name, _started_from; 
+            END IF;
+            
             EXECUTE _sql INTO _message;
 
             IF _message = '' THEN
                 _status := true;
-            END IF;
 
+                IF(format='teamcity') THEN
+                    RAISE INFO '##teamcity[testFinished name=''%'' message=''%'']', _function_name, clock_timestamp() AT TIME ZONE 'UTC'; 
+                ELSE
+                    RAISE INFO 'Passed % : %', _function_name, clock_timestamp() AT TIME ZONE 'UTC'; 
+                END IF;
+            ELSE
+                IF(format='teamcity') THEN
+                    RAISE INFO '##teamcity[testFailed name=''%'' message=''%'']', _function_name, _message; 
+                    RAISE INFO '##teamcity[testFinished name=''%'' message=''%'']', _function_name, clock_timestamp() AT TIME ZONE 'UTC'; 
+                ELSE
+                    RAISE INFO 'Test failed % : %', _function_name, _message; 
+                END IF;
+            END IF;
             
             INSERT INTO unit_tests.test_details(test_id, function_name, message, status, ts)
             SELECT _test_id, _function_name, _message, _status, clock_timestamp();
@@ -618,8 +641,16 @@ BEGIN
             SELECT _test_id, _function_name, _message, false;
 
             _failed_tests := _failed_tests + 1;         
+
             RAISE WARNING 'TEST % FAILED.', _function_name;
             RAISE WARNING 'REASON: %', _message;
+
+            IF(format='teamcity') THEN
+                RAISE INFO '##teamcity[testFailed name=''%'' message=''%'']', _function_name, _message; 
+                RAISE INFO '##teamcity[testFinished name=''%'' message=''%'']', _function_name, clock_timestamp() AT TIME ZONE 'UTC'; 
+            ELSE
+                RAISE INFO 'Test failed % : %', _function_name, _message; 
+            END IF;
         END;
     END LOOP;
 
@@ -707,10 +738,23 @@ BEGIN
     
     IF _failed_tests > 0 THEN
         _result := 'N';
-        RAISE INFO '%', _ret_val;
+
+        IF(format='teamcity') THEN
+            RAISE INFO '##teamcity[testStarted name=''Result'']'; 
+            RAISE INFO '##teamcity[testFailed name=''Result'' message=''%'']', REPLACE(_ret_val, E'\n', ' |n'); 
+            RAISE INFO '##teamcity[testFinished name=''Result'']'; 
+            RAISE INFO '##teamcity[testSuiteFinished name=''Plpgunit'' message=''%'']', REPLACE(_ret_val, E'\n', '|n'); 
+        ELSE
+            RAISE INFO '%', _ret_val;
+        END IF;
     ELSE
         _result := 'Y';
-        RAISE INFO '%', _ret_val;
+
+        IF(format='teamcity') THEN
+            RAISE INFO '##teamcity[testSuiteFinished name=''Plpgunit'' message=''%'']', REPLACE(_ret_val, E'\n', '|n'); 
+        ELSE
+            RAISE INFO '%', _ret_val;
+        END IF;
     END IF;
 
     SET CLIENT_MIN_MESSAGES TO notice;
