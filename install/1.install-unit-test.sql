@@ -130,21 +130,21 @@ CREATE FUNCTION assert.is_equal(IN have anyelement, IN want anyelement, OUT mess
 AS
 $$
 BEGIN
-    IF($1 = $2) THEN
+    IF($1 IS NOT DISTINCT FROM $2) THEN
         message := 'Assert is equal.';
         PERFORM assert.ok(message);
         result := true;
         RETURN;
     END IF;
-
-    message := E'ASSERT IS_EQUAL FAILED.\n\nHave -> ' || $1::text || E'\nWant -> ' || $2::text || E'\n';    
+    
+    message := E'ASSERT IS_EQUAL FAILED.\n\nHave -> ' || COALESCE($1::text, 'NULL') || E'\nWant -> ' || COALESCE($2::text, 'NULL') || E'\n';    
     PERFORM assert.fail(message);
     result := false;
     RETURN;
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 
 DROP FUNCTION IF EXISTS assert.are_equal(VARIADIC anyarray, OUT message text, OUT result boolean);
@@ -152,15 +152,43 @@ CREATE FUNCTION assert.are_equal(VARIADIC anyarray, OUT message text, OUT result
 AS
 $$
     DECLARE count integer=0;
+    DECLARE total_items bigint;
+    DECLARE total_rows bigint;
 BEGIN
-    SELECT COUNT(DISTINCT $1[s.i]) INTO count
-    FROM generate_series(array_lower($1,1), array_upper($1,1)) AS s(i)
-    ORDER BY 1;
+    result := false;
+    
+    WITH counter
+    AS
+    (
+        SELECT *
+        FROM explode_array($1) AS items
+    )
+    SELECT
+        COUNT(items),
+        COUNT(*)
+    INTO
+        total_items,
+        total_rows
+    FROM counter;
 
-    IF count <> 1 THEN
-        MESSAGE := 'ASSERT ARE_EQUAL FAILED.';  
-        PERFORM assert.fail(MESSAGE);
-        RESULT := FALSE;
+    IF(total_items = 0 OR total_items = total_rows) THEN
+        result := true;
+    END IF;
+
+    IF(result AND total_items > 0) THEN
+        SELECT COUNT(DISTINCT $1[s.i])
+        INTO count
+        FROM generate_series(array_lower($1,1), array_upper($1,1)) AS s(i)
+        ORDER BY 1;
+
+        IF count <> 1 THEN
+            result := FALSE;
+        END IF;
+    END IF;
+
+    IF(NOT result) THEN
+        message := 'ASSERT ARE_EQUAL FAILED.';  
+        PERFORM assert.fail(message);
         RETURN;
     END IF;
 
@@ -171,42 +199,48 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_not_equal(IN already_have anyelement, IN dont_want anyelement, OUT message text, OUT result boolean)
 AS
 $$
 BEGIN
-    IF($1 != $2) THEN
+    IF($1 IS DISTINCT FROM $2) THEN
         message := 'Assert is not equal.';
         PERFORM assert.ok(message);
         result := true;
         RETURN;
     END IF;
     
-    message := E'ASSERT IS_NOT_EQUAL FAILED.\n\nAlready Have -> ' || $1::text || E'\nDon''t Want   -> ' || $2::text || E'\n';   
+    message := E'ASSERT IS_NOT_EQUAL FAILED.\n\nAlready Have -> ' || COALESCE($1::text, 'NULL') || E'\nDon''t Want   -> ' || COALESCE($2::text, 'NULL') || E'\n';   
     PERFORM assert.fail(message);
     result := false;
     RETURN;
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.are_not_equal(VARIADIC anyarray, OUT message text, OUT result boolean)
 AS
 $$
     DECLARE count integer=0;
-BEGIN
+    DECLARE count_nulls bigint;
+BEGIN    
+    SELECT COUNT(*)
+    INTO count_nulls
+    FROM explode_array($1) AS items
+    WHERE items IS NULL;
+
     SELECT COUNT(DISTINCT $1[s.i]) INTO count
     FROM generate_series(array_lower($1,1), array_upper($1,1)) AS s(i)
     ORDER BY 1;
-
-    IF count <> array_upper($1,1) THEN
-        MESSAGE := 'ASSERT ARE_NOT_EQUAL FAILED.';  
-        PERFORM assert.fail(MESSAGE);
+    
+    IF(count + count_nulls <> array_upper($1,1) OR count_nulls > 1) THEN
+        message := 'ASSERT ARE_NOT_EQUAL FAILED.';  
+        PERFORM assert.fail(message);
         RESULT := FALSE;
         RETURN;
     END IF;
@@ -218,7 +252,8 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
+
 
 DROP FUNCTION IF EXISTS assert.is_null(IN anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_null(IN anyelement, OUT message text, OUT result boolean)
@@ -239,7 +274,7 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.is_not_null(IN anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_not_null(IN anyelement, OUT message text, OUT result boolean)
@@ -260,14 +295,14 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.is_true(IN boolean, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_true(IN boolean, OUT message text, OUT result boolean)
 AS
 $$
 BEGIN
-    IF($1 = true) THEN
+    IF($1) THEN
         message := 'Assert is true.';
         PERFORM assert.ok(message);
         result := true;
@@ -281,14 +316,14 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.is_false(IN boolean, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_false(IN boolean, OUT message text, OUT result boolean)
 AS
 $$
 BEGIN
-    IF($1 = false) THEN
+    IF(NOT $1) THEN
         message := 'Assert is false.';
         PERFORM assert.ok(message);
         result := true;
@@ -302,7 +337,7 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.is_greater_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_greater_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
@@ -316,14 +351,14 @@ BEGIN
         RETURN;
     END IF;
     
-    message := E'ASSERT IS_GREATER_THAN FAILED.\n\n X : -> ' || $1::text || E'\n is not greater than Y:   -> ' || $2::text || E'\n';    
+    message := E'ASSERT IS_GREATER_THAN FAILED.\n\n X : -> ' || COALESCE($1::text, 'NULL') || E'\n is not greater than Y:   -> ' || COALESCE($2::text, 'NULL') || E'\n';    
     PERFORM assert.fail(message);
     result := false;
     RETURN;
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.is_less_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.is_less_than(IN x anyelement, IN y anyelement, OUT message text, OUT result boolean)
@@ -337,14 +372,14 @@ BEGIN
         RETURN;
     END IF;
     
-    message := E'ASSERT IS_LESS_THAN FAILED.\n\n X : -> ' || $1::text || E'\n is not  than Y:   -> ' || $2::text || E'\n';  
+    message := E'ASSERT IS_LESS_THAN FAILED.\n\n X : -> ' || COALESCE($1::text, 'NULL') || E'\n is not less than Y:   -> ' || COALESCE($2::text, 'NULL') || E'\n';  
     PERFORM assert.fail(message);
     result := false;
     RETURN;
 END
 $$
 LANGUAGE plpgsql
-IMMUTABLE STRICT;
+IMMUTABLE;
 
 DROP FUNCTION IF EXISTS assert.function_exists(function_name text, OUT message text, OUT result boolean);
 CREATE FUNCTION assert.function_exists(function_name text, OUT message text, OUT result boolean)
