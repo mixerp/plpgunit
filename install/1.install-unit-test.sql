@@ -774,7 +774,7 @@ BEGIN
                 _status := true;
                 _message = 'Failed dependencies: ' || array_to_string(_failed_dependencies, ',');
                 IF(format='teamcity') THEN
-                    RAISE INFO '##teamcity[testSkipped name=''%'']', _function_name, clock_timestamp() AT TIME ZONE 'UTC';
+                    RAISE INFO '##teamcity[testSkipped name=''%''] : %', _function_name, clock_timestamp() AT TIME ZONE 'UTC';
                 ELSE
                     RAISE INFO 'Skipped % : %', _function_name, clock_timestamp() AT TIME ZONE 'UTC';
                 END IF;
