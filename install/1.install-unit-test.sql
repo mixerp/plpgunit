@@ -953,19 +953,20 @@ $$
 LANGUAGE plpgsql;
 
 -- version of begin that will raise if any tests have failed
--- this will cause psql to return nonzer exit code so the build/script can be halted
-create or replace function unit_tests.begin_psql(verbosity integer default 9, format text default '')
-returns void as $$
-    declare
+-- this will cause psql to return nonzeo exit code so the build/script can be halted
+CREATE OR REPLACE FUNCTION unit_tests.begin_psql(verbosity integer default 9, format text default '')
+RETURNS VOID AS $$
+    DECLARE
         _msg text;
         _res character(1);
-    begin
-        select * into _msg, _res
-            from unit_tests.begin(verbosity, format)
+    BEGIN
+        SELECT * INTO _msg, _res
+            FROM unit_tests.begin(verbosity, format)
         ;
-        if(_res != 'Y') then
-            raise exception 'Tests failed [%]', _msg;
-        end if;
-    end
-$$ language plpgsql;
+        IF(_res != 'Y') THEN
+            RAISE EXCEPTION 'Tests failed [%]', _msg;
+        END IF;
+    END
+$$
+LANGUAGE plpgsql;
 
