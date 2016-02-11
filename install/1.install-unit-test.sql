@@ -635,6 +635,7 @@ $$
     DECLARE _should_skip            boolean;
     DECLARE _message                text;
     DECLARE _error                  text;
+    DECLARE _context                text;
     DECLARE _result                 character(1);
     DECLARE _test_id                integer;
     DECLARE _status                 boolean;
@@ -795,7 +796,8 @@ BEGIN
             END IF;
 
         EXCEPTION WHEN OTHERS THEN
-            _message := 'ERR' || SQLSTATE || ': ' || SQLERRM;
+            GET STACKED DIAGNOSTICS _context = PG_EXCEPTION_CONTEXT;
+            _message := 'ERR: [' || SQLSTATE || ']: ' || SQLERRM || E'\n    ' || split_part(_context, E'\n', 1);
             INSERT INTO unit_tests.test_details(test_id, function_name, message, status, executed)
             SELECT _test_id, _function_name, _message, false, true;
 
@@ -949,3 +951,22 @@ BEGIN
 END
 $$
 LANGUAGE plpgsql;
+
+-- version of begin that will raise if any tests have failed
+-- this will cause psql to return nonzeo exit code so the build/script can be halted
+CREATE OR REPLACE FUNCTION unit_tests.begin_psql(verbosity integer default 9, format text default '')
+RETURNS VOID AS $$
+    DECLARE
+        _msg text;
+        _res character(1);
+    BEGIN
+        SELECT * INTO _msg, _res
+            FROM unit_tests.begin(verbosity, format)
+        ;
+        IF(_res != 'Y') THEN
+            RAISE EXCEPTION 'Tests failed [%]', _msg;
+        END IF;
+    END
+$$
+LANGUAGE plpgsql;
+
