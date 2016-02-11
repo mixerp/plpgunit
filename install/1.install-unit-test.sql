@@ -3,38 +3,38 @@ The PostgreSQL License
 
 Copyright (c) 2014, Binod Nepal, Mix Open Foundation (http://mixof.org).
 
-Permission to use, copy, modify, and distribute this software and its documentation 
-for any purpose, without fee, and without a written agreement is hereby granted, 
-provided that the above copyright notice and this paragraph and 
+Permission to use, copy, modify, and distribute this software and its documentation
+for any purpose, without fee, and without a written agreement is hereby granted,
+provided that the above copyright notice and this paragraph and
 the following two paragraphs appear in all copies.
 
-IN NO EVENT SHALL MIX OPEN FOUNDATION BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, 
-SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, 
-ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF 
+IN NO EVENT SHALL MIX OPEN FOUNDATION BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS,
+ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
 MIX OPEN FOUNDATION HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-MIX OPEN FOUNDATION SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, 
-BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS 
-FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, 
-AND MIX OPEN FOUNDATION HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, 
+MIX OPEN FOUNDATION SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING,
+BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS,
+AND MIX OPEN FOUNDATION HAS NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT,
 UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 ***********************************************************************************/
 
 CREATE SCHEMA IF NOT EXISTS assert;
 CREATE SCHEMA IF NOT EXISTS unit_tests;
 
-DO 
+DO
 $$
 BEGIN
-    IF NOT EXISTS 
+    IF NOT EXISTS
     (
         SELECT * FROM pg_type
-        WHERE 
+        WHERE
             typname ='test_result'
-        AND 
-            typnamespace = 
+        AND
+            typnamespace =
             (
-                SELECT oid FROM pg_namespace 
+                SELECT oid FROM pg_namespace
                 WHERE nspname ='public'
             )
     ) THEN
@@ -106,7 +106,7 @@ BEGIN
     IF $1 IS NULL OR trim($1) = '' THEN
         message := 'NO REASON SPECIFIED';
     END IF;
-    
+
     RAISE WARNING 'ASSERT FAILED : %', message;
     RETURN message;
 END
@@ -151,8 +151,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_EQUAL FAILED.\n\nHave -> ' || COALESCE($1::text, 'NULL') || E'\nWant -> ' || COALESCE($2::text, 'NULL') || E'\n';    
+
+    message := E'ASSERT IS_EQUAL FAILED.\n\nHave -> ' || COALESCE($1::text, 'NULL') || E'\nWant -> ' || COALESCE($2::text, 'NULL') || E'\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -171,7 +171,7 @@ $$
     DECLARE total_rows bigint;
 BEGIN
     result := false;
-    
+
     WITH counter
     AS
     (
@@ -202,7 +202,7 @@ BEGIN
     END IF;
 
     IF(NOT result) THEN
-        message := 'ASSERT ARE_EQUAL FAILED.';  
+        message := 'ASSERT ARE_EQUAL FAILED.';
         PERFORM assert.fail(message);
         RETURN;
     END IF;
@@ -227,8 +227,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_NOT_EQUAL FAILED.\n\nAlready Have -> ' || COALESCE($1::text, 'NULL') || E'\nDon''t Want   -> ' || COALESCE($2::text, 'NULL') || E'\n';   
+
+    message := E'ASSERT IS_NOT_EQUAL FAILED.\n\nAlready Have -> ' || COALESCE($1::text, 'NULL') || E'\nDon''t Want   -> ' || COALESCE($2::text, 'NULL') || E'\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -243,7 +243,7 @@ AS
 $$
     DECLARE count integer=0;
     DECLARE count_nulls bigint;
-BEGIN    
+BEGIN
     SELECT COUNT(*)
     INTO count_nulls
     FROM explode_array($1) AS items
@@ -252,9 +252,9 @@ BEGIN
     SELECT COUNT(DISTINCT $1[s.i]) INTO count
     FROM generate_series(array_lower($1,1), array_upper($1,1)) AS s(i)
     ORDER BY 1;
-    
+
     IF(count + count_nulls <> array_upper($1,1) OR count_nulls > 1) THEN
-        message := 'ASSERT ARE_NOT_EQUAL FAILED.';  
+        message := 'ASSERT ARE_NOT_EQUAL FAILED.';
         PERFORM assert.fail(message);
         RESULT := FALSE;
         RETURN;
@@ -281,8 +281,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_NULL FAILED. NULL value was expected.\n\n\n';    
+
+    message := E'ASSERT IS_NULL FAILED. NULL value was expected.\n\n\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -302,8 +302,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_NOT_NULL FAILED. The value is NULL.\n\n\n';  
+
+    message := E'ASSERT IS_NOT_NULL FAILED. The value is NULL.\n\n\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -323,8 +323,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_TRUE FAILED. A true condition was expected.\n\n\n';  
+
+    message := E'ASSERT IS_TRUE FAILED. A true condition was expected.\n\n\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -344,8 +344,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_FALSE FAILED. A false condition was expected.\n\n\n';    
+
+    message := E'ASSERT IS_FALSE FAILED. A false condition was expected.\n\n\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -365,8 +365,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_GREATER_THAN FAILED.\n\n X : -> ' || COALESCE($1::text, 'NULL') || E'\n is not greater than Y:   -> ' || COALESCE($2::text, 'NULL') || E'\n';    
+
+    message := E'ASSERT IS_GREATER_THAN FAILED.\n\n X : -> ' || COALESCE($1::text, 'NULL') || E'\n is not greater than Y:   -> ' || COALESCE($2::text, 'NULL') || E'\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -386,8 +386,8 @@ BEGIN
         result := true;
         RETURN;
     END IF;
-    
-    message := E'ASSERT IS_LESS_THAN FAILED.\n\n X : -> ' || COALESCE($1::text, 'NULL') || E'\n is not less than Y:   -> ' || COALESCE($2::text, 'NULL') || E'\n';  
+
+    message := E'ASSERT IS_LESS_THAN FAILED.\n\n X : -> ' || COALESCE($1::text, 'NULL') || E'\n is not less than Y:   -> ' || COALESCE($2::text, 'NULL') || E'\n';
     PERFORM assert.fail(message);
     result := false;
     RETURN;
@@ -428,7 +428,7 @@ DROP FUNCTION IF EXISTS assert.if_functions_compile(VARIADIC _schema_name text[]
 CREATE OR REPLACE FUNCTION assert.if_functions_compile
 (
     VARIADIC _schema_name text[],
-    OUT message text, 
+    OUT message text,
     OUT result boolean
 )
 AS
@@ -445,21 +445,21 @@ $$
     DECLARE command_text                text;
     DECLARE failed_functions            text;
 BEGIN
-    FOR current_function IN 
-        SELECT proname, proargtypes, nspname 
-        FROM pg_proc 
-        INNER JOIN pg_namespace 
-        ON pg_proc.pronamespace = pg_namespace.oid 
-        WHERE pronamespace IN 
+    FOR current_function IN
+        SELECT proname, proargtypes, nspname
+        FROM pg_proc
+        INNER JOIN pg_namespace
+        ON pg_proc.pronamespace = pg_namespace.oid
+        WHERE pronamespace IN
         (
-            SELECT oid FROM pg_namespace 
-            WHERE nspname = ANY($1) 
+            SELECT oid FROM pg_namespace
+            WHERE nspname = ANY($1)
             AND nspname NOT IN
             (
                 'assert', 'unit_tests', 'information_schema'
-            ) 
+            )
             AND proname NOT IN('if_functions_compile')
-        ) 
+        )
     LOOP
         current_parameters_count := array_upper(current_function.proargtypes, 1) + 1;
 
@@ -472,12 +472,12 @@ BEGIN
                 all_parameters := all_parameters || ', ';
             END IF;
 
-            SELECT 
-                nspname, typname 
-            INTO 
-                current_type_schema, current_type 
-            FROM pg_type 
-            INNER JOIN pg_namespace 
+            SELECT
+                nspname, typname
+            INTO
+                current_type_schema, current_type
+            FROM pg_type
+            INNER JOIN pg_namespace
             ON pg_type.typnamespace = pg_namespace.oid
             WHERE pg_type.oid = current_function.proargtypes[i];
 
@@ -485,14 +485,14 @@ BEGIN
                 current_parameter := '1::' || current_type_schema || '.' || current_type;
             ELSIF(substring(current_type, 1, 1) = '_') THEN
                 current_parameter := 'NULL::' || current_type_schema || '.' || substring(current_type, 2, length(current_type)) || '[]';
-            ELSIF(current_type in ('date')) THEN            
+            ELSIF(current_type in ('date')) THEN
                 current_parameter := '''1-1-2000''::' || current_type;
             ELSIF(current_type = 'bool') THEN
-                current_parameter := 'false';            
+                current_parameter := 'false';
             ELSE
                 current_parameter := '''''::' || quote_ident(current_type_schema) || '.' || quote_ident(current_type);
             END IF;
-            
+
             all_parameters = all_parameters || current_parameter;
 
             i := i + 1;
@@ -509,12 +509,12 @@ BEGIN
         functions_count := functions_count + 1;
 
         EXCEPTION WHEN OTHERS THEN
-            IF(failed_functions IS NULL) THEN 
+            IF(failed_functions IS NULL) THEN
                 failed_functions := '';
             END IF;
-            
+
             IF(SQLSTATE IN('42702', '42704')) THEN
-                failed_functions := failed_functions || E'\n' || command_text || E'\n' || SQLERRM || E'\n';                
+                failed_functions := failed_functions || E'\n' || command_text || E'\n' || SQLERRM || E'\n';
             END IF;
     END;
 
@@ -529,15 +529,15 @@ BEGIN
     END IF;
 END;
 $$
-LANGUAGE plpgsql 
+LANGUAGE plpgsql
 VOLATILE;
 
 DROP FUNCTION IF EXISTS assert.if_views_compile(VARIADIC _schema_name text[], OUT message text, OUT result boolean);
 CREATE FUNCTION assert.if_views_compile
 (
     VARIADIC _schema_name text[],
-    OUT message text, 
-    OUT result boolean    
+    OUT message text,
+    OUT result boolean
 )
 AS
 $$
@@ -548,10 +548,10 @@ $$
     DECLARE command_text                text;
     DECLARE failed_views                text;
 BEGIN
-    FOR current_view IN 
-        SELECT table_name, table_schema 
+    FOR current_view IN
+        SELECT table_name, table_schema
         FROM information_schema.views
-        WHERE table_schema = ANY($1) 
+        WHERE table_schema = ANY($1)
     LOOP
 
     BEGIN
@@ -559,15 +559,15 @@ BEGIN
         command_text := 'SELECT * FROM ' || current_view_name || ' LIMIT 1;';
 
         RAISE NOTICE '%', command_text;
-        
+
         EXECUTE command_text;
 
         EXCEPTION WHEN OTHERS THEN
-            IF(failed_views IS NULL) THEN 
+            IF(failed_views IS NULL) THEN
                 failed_views := '';
             END IF;
 
-            failed_views := failed_views || E'\n' || command_text || E'\n' || SQLERRM || E'\n';                
+            failed_views := failed_views || E'\n' || command_text || E'\n' || SQLERRM || E'\n';
     END;
 
 
@@ -583,7 +583,7 @@ BEGIN
     RETURN;
 END;
 $$
-LANGUAGE plpgsql 
+LANGUAGE plpgsql
 VOLATILE;
 
 
@@ -946,7 +946,7 @@ RETURNS TABLE(message text, result character(1))
 AS
 $$
 BEGIN
-    RETURN QUERY 
+    RETURN QUERY
     SELECT * FROM unit_tests.begin($1, 'junit');
 END
 $$
